@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Router Metrics Monitor</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="apple-touch-icon" href="favicon.svg">
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f5f5f7;
+    --card-solid: #ffffff;
+    --border: rgba(0, 0, 0, 0.08);
+    --text: #1d1d1f;
+    --text-2: #6e6e73;
+    --text-3: #86868b;
+    --accent: #0071e3;
+    --segment-bg: rgba(120, 120, 128, 0.12);
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 8px 24px rgba(0,0,0,0.04);
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
+                 "Helvetica Neue", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    letter-spacing: -0.01em;
+  }
+
+  /* Frosted-glass top navigation */
+  header {
+    position: sticky; top: 0; z-index: 20;
+    padding: 16px 32px;
+    background: rgba(245, 245, 247, 0.72);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    border-bottom: 1px solid var(--border);
+  }
+  .title-row { display: flex; align-items: center; gap: 10px; }
+  .logo {
+    width: 26px; height: 26px; border-radius: 7px; display: block;
+    box-shadow: 0 2px 6px rgba(10,132,255,0.35);
+  }
+  header h1 {
+    font-size: 20px; margin: 0; font-weight: 600; letter-spacing: -0.02em;
+    white-space: nowrap;
+  }
+
+  /* Metric cards */
+  .stats { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+  .stat {
+    flex: 1 1 auto; min-width: 108px;
+    background: var(--card-solid);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 12px 14px;
+    box-shadow: var(--shadow);
+  }
+  .stat .lbl { font-size: 12px; color: var(--text-3); font-weight: 500; }
+  .stat b { display: block; margin-top: 4px; font-size: 20px; font-weight: 600; letter-spacing: -0.02em; }
+  .stat.accent-down b { color: #34c759; }
+  .stat.accent-up b { color: #ff9500; }
+  .stat.accent-conn b { color: var(--accent); }
+
+  /* Toolbar */
+  .toolbar { padding: 14px 32px 0; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .segment { display: inline-flex; background: var(--segment-bg); border-radius: 10px; padding: 2px; }
+  .segment button {
+    border: 0; background: transparent; color: var(--text);
+    padding: 6px 14px; border-radius: 8px; cursor: pointer;
+    font-size: 13px; font-weight: 500; transition: all .18s ease;
+  }
+  .segment button:hover { color: var(--accent); }
+  .segment button.active {
+    background: var(--card-solid); color: var(--text);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.12); font-weight: 600;
+  }
+  .select-wrap { position: relative; }
+  select {
+    appearance: none; -webkit-appearance: none;
+    border: 0; background: var(--segment-bg); color: var(--text);
+    padding: 7px 30px 7px 14px; border-radius: 10px;
+    font-size: 13px; font-weight: 500; cursor: pointer; font-family: inherit;
+  }
+  .select-wrap::after {
+    content: ""; position: absolute; right: 12px; top: 50%;
+    width: 7px; height: 7px; border-right: 1.5px solid var(--text-3);
+    border-bottom: 1.5px solid var(--text-3);
+    transform: translateY(-65%) rotate(45deg); pointer-events: none;
+  }
+  .btn-plain {
+    border: 0; background: var(--segment-bg); color: var(--text);
+    padding: 7px 14px; border-radius: 10px; cursor: pointer;
+    font-size: 13px; font-weight: 500; transition: background .18s ease;
+  }
+  .btn-plain:hover { background: rgba(120,120,128,0.2); }
+  .hint { font-size: 12px; color: var(--text-3); margin-left: auto; }
+
+  /* Chart cards */
+  .charts { padding: 18px 32px 32px; display: flex; flex-direction: column; gap: 18px; }
+  .chart-box {
+    background: var(--card-solid);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 18px 20px 14px;
+    box-shadow: var(--shadow);
+  }
+  .chart-box h2 {
+    margin: 0 0 12px; font-size: 15px; font-weight: 600; letter-spacing: -0.01em;
+    color: var(--text); display: flex; align-items: center; gap: 8px;
+  }
+  .chart-box .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+  .canvas-holder { height: 300px; }
+  #chart-conn-holder { height: 240px; }
+  #msg { padding: 32px; color: #ff3b30; font-size: 14px; }
+
+  @media (max-width: 640px) {
+    header, .toolbar, .charts { padding-left: 18px; padding-right: 18px; }
+    .hint { display: none; }
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #000000;
+      --card-solid: #1c1c1e;
+      --border: rgba(255, 255, 255, 0.1);
+      --text: #f5f5f7;
+      --text-2: #aeaeb2;
+      --text-3: #8e8e93;
+      --accent: #0a84ff;
+      --segment-bg: rgba(120, 120, 128, 0.24);
+      --shadow: 0 1px 3px rgba(0,0,0,0.4);
+    }
+    header { background: rgba(0,0,0,0.6); }
+    .stat.accent-down b { color: #30d158; }
+    .stat.accent-up b { color: #ff9f0a; }
+    .segment button.active { background: #3a3a3c; }
+    .btn-plain:hover { background: rgba(120,120,128,0.36); }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="title-row">
+    <img class="logo" src="favicon.svg" width="26" height="26" alt="Router Metrics Monitor">
+    <h1>Router Metrics Monitor</h1>
+  </div>
+  <div class="stats">
+    <div class="stat accent-down"><span class="lbl">Download</span><b id="s-down">—</b></div>
+    <div class="stat accent-up"><span class="lbl">Upload</span><b id="s-up">—</b></div>
+    <div class="stat accent-conn"><span class="lbl">Connections</span><b id="s-conn">—</b></div>
+    <div class="stat"><span class="lbl">Peak download</span><b id="s-maxdown">—</b></div>
+    <div class="stat"><span class="lbl">Peak connections</span><b id="s-maxconn">—</b></div>
+    <div class="stat"><span class="lbl">Data points</span><b id="s-count">—</b></div>
+    <div class="stat"><span class="lbl">Last updated</span><b id="s-updated" style="font-size:14px">—</b></div>
+  </div>
+</header>
+
+<div class="toolbar">
+  <div class="segment">
+    <button data-range="1">Last 1h</button>
+    <button data-range="6">Last 6h</button>
+    <button data-range="24" class="active">Last 24h</button>
+    <button data-range="168">Last 7d</button>
+    <button data-range="0">All</button>
+  </div>
+  <div class="select-wrap">
+    <select id="month-select"></select>
+  </div>
+  <button id="reset-zoom" class="btn-plain">Reset zoom</button>
+  <span class="hint">Scroll to zoom · drag to pan · box-select to zoom in (both charts synced)</span>
+</div>
+
+<div class="charts" id="charts">
+  <div class="chart-box">
+    <h2><span class="dot" style="background:#34c759"></span>Upload / Download rate</h2>
+    <div id="chart-speed-holder" class="canvas-holder"><canvas id="chart-speed"></canvas></div>
+  </div>
+  <div class="chart-box">
+    <h2><span class="dot" style="background:#0071e3"></span>Active connections</h2>
+    <div id="chart-conn-holder" class="canvas-holder"><canvas id="chart-conn"></canvas></div>
+  </div>
+</div>
+<div id="msg" style="display:none"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/luxon@3.4.4/build/global/luxon.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.3.1/dist/chartjs-adapter-luxon.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+<script>
+// Data format: each record is [timestamp_seconds, connections, down_Bps, up_Bps]
+let speedChart, connChart;
+let allData = [];   // [{x, conn, down, up}]
+let syncing = false; // prevents recursion when zoom is synced across the two charts
+
+// ---- Helper: bytes/sec -> human-readable (bit/s) ----
+function fmtSpeed(bps) {
+  if (bps == null || isNaN(bps)) return '—';
+  const bits = bps * 8;
+  const u = ['bps','Kbps','Mbps','Gbps'];
+  let i = 0, v = bits;
+  while (v >= 1000 && i < u.length - 1) { v /= 1000; i++; }
+  return (v < 10 ? v.toFixed(2) : v < 100 ? v.toFixed(1) : Math.round(v)) + ' ' + u[i];
+}
+
+// ---- Helper: connection count formatting (a few thousand ~ tens of thousands) ----
+function fmtConn(n) {
+  if (n == null || isNaN(n)) return '—';
+  if (n >= 10000) return (n / 1000).toFixed(0) + 'k';
+  if (n >= 1000) return (n / 1000).toFixed(1) + 'k';
+  return String(Math.round(n));
+}
+
+// ---- Load data ----
+async function tryFetchMonth(ym) {
+  try {
+    const res = await fetch(`data/${ym}.json?_=${Date.now()}`);
+    if (!res.ok) return null;
+    const raw = await res.json();
+    return Array.isArray(raw) ? raw : null;
+  } catch { return null; }
+}
+
+async function discoverMonths(maxBack = 24) {
+  const now = luxon.DateTime.now();
+  const months = [];
+  for (let i = 0; i < maxBack; i++) months.push(now.minus({ months: i }).toFormat('yyyyLL'));
+  const results = await Promise.all(months.map(async ym => ({ ym, data: await tryFetchMonth(ym) })));
+  return results.filter(r => r.data && r.data.length);
+}
+
+function normalize(raw) {
+  return raw.map(r => ({
+    x: r[0] * 1000,
+    conn: r[1] ?? 0,
+    down: r.length >= 4 ? r[2] : null,
+    up:   r.length >= 4 ? r[3] : null,
+  }));
+}
+
+async function loadAll(selectedMonth) {
+  const found = await discoverMonths();
+  if (!found.length) { showMsg('No data files found (data/YYYYMM.json).'); return; }
+
+  const sel = document.getElementById('month-select');
+  const prev = selectedMonth || sel.value;
+  sel.innerHTML = '<option value="all">All months</option>' +
+    found.map(f => `<option value="${f.ym}">${f.ym.slice(0,4)}-${f.ym.slice(4)}</option>`).join('');
+  sel.value = prev && [...sel.options].some(o => o.value === prev) ? prev : 'all';
+
+  let merged = [];
+  if (sel.value === 'all') {
+    found.slice().reverse().forEach(f => merged.push(...normalize(f.data)));
+  } else {
+    const one = found.find(f => f.ym === sel.value);
+    if (one) merged = normalize(one.data);
+  }
+  merged.sort((a, b) => a.x - b.x);
+  allData = merged;
+  renderAll(currentRange);
+  updateStats();
+}
+
+function updateStats() {
+  const el = id => document.getElementById(id);
+  if (!allData.length) return;
+  const last = allData[allData.length - 1];
+  const downs = allData.map(d => d.down).filter(v => v != null);
+  const conns = allData.map(d => d.conn);
+  el('s-down').textContent = fmtSpeed(last.down);
+  el('s-up').textContent = fmtSpeed(last.up);
+  el('s-conn').textContent = last.conn.toLocaleString();
+  el('s-maxdown').textContent = downs.length ? fmtSpeed(Math.max(...downs)) : '—';
+  el('s-maxconn').textContent = conns.length ? Math.max(...conns).toLocaleString() : '—';
+  el('s-count').textContent = allData.length;
+  el('s-updated').textContent = new Date(last.x).toLocaleString();
+}
+
+let currentRange = 24;
+
+function themeColors() {
+  const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  return {
+    dark,
+    grid: dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)',
+    tick: dark ? '#8e8e93' : '#86868b',
+  };
+}
+
+// Apple-style tooltip
+function tooltipStyle(colors) {
+  return {
+    backgroundColor: colors.dark ? 'rgba(44,44,46,0.92)' : 'rgba(255,255,255,0.92)',
+    titleColor: colors.dark ? '#f5f5f7' : '#1d1d1f',
+    bodyColor: colors.dark ? '#f5f5f7' : '#1d1d1f',
+    borderColor: colors.dark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)',
+    borderWidth: 1,
+    cornerRadius: 12,
+    padding: 12,
+    titleFont: { size: 12, weight: '600' },
+    bodyFont: { size: 13 },
+    displayColors: true,
+    usePointStyle: true,
+    boxPadding: 4,
+  };
+}
+
+function rangeBounds(rangeHours) {
+  if (rangeHours > 0 && allData.length) {
+    const max = allData[allData.length - 1].x;
+    return { min: max - rangeHours * 3600 * 1000, max };
+  }
+  return { min: undefined, max: undefined };
+}
+
+// x-axis zoom sync: when one chart zooms/pans, sync the x range to the other
+function makeZoomSync(getOther) {
+  return function ({ chart }) {
+    if (syncing) return;
+    syncing = true;
+    const other = getOther();
+    if (other) {
+      const { min, max } = chart.scales.x;
+      other.scales.x.options.min = min;
+      other.scales.x.options.max = max;
+      other.update('none');
+    }
+    syncing = false;
+  };
+}
+
+function baseXScale(bounds, colors) {
+  return {
+    type: 'time',
+    min: bounds.min, max: bounds.max,
+    time: { tooltipFormat: 'yyyy-MM-dd HH:mm' },
+    grid: { color: colors.grid },
+    ticks: { color: colors.tick, maxRotation: 0, autoSkip: true },
+  };
+}
+
+function zoomPlugin(getOther) {
+  return {
+    pan: { enabled: true, mode: 'x', onPanComplete: makeZoomSync(getOther) },
+    zoom: {
+      wheel: { enabled: true }, pinch: { enabled: true },
+      drag: { enabled: true, backgroundColor: 'rgba(37,99,235,0.15)' },
+      mode: 'x',
+      onZoomComplete: makeZoomSync(getOther),
+    },
+    limits: { x: { minRange: 5 * 60 * 1000 } },
+  };
+}
+
+function renderAll(rangeHours) {
+  const colors = themeColors();
+  const bounds = rangeBounds(rangeHours);
+
+  if (speedChart) speedChart.destroy();
+  if (connChart) connChart.destroy();
+
+  // ---- Speed chart (top) ----
+  speedChart = new Chart(document.getElementById('chart-speed'), {
+    type: 'line',
+    data: {
+      datasets: [
+        {
+          label: 'Download', data: allData.map(d => ({ x: d.x, y: d.down })),
+          borderColor: '#34c759', backgroundColor: 'rgba(52,199,89,0.12)',
+          borderWidth: 2, pointRadius: 0, pointHoverRadius: 4, fill: true, tension: 0.35, spanGaps: true,
+        },
+        {
+          label: 'Upload', data: allData.map(d => ({ x: d.x, y: d.up })),
+          borderColor: '#ff9500', backgroundColor: 'rgba(255,149,0,0.10)',
+          borderWidth: 2, pointRadius: 0, pointHoverRadius: 4, fill: true, tension: 0.35, spanGaps: true,
+        },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: false,
+      interaction: { mode: 'index', intersect: false },
+      scales: {
+        x: baseXScale(bounds, colors),
+        y: {
+          beginAtZero: true, grid: { color: colors.grid },
+          ticks: { color: colors.tick, callback: v => fmtSpeed(v) },
+        },
+      },
+      plugins: {
+        legend: { display: true, position: 'top', align: 'end', labels: { color: colors.tick, usePointStyle: true, pointStyle: 'circle', boxWidth: 7, padding: 16, font: { size: 12 } } },
+        tooltip: Object.assign({ callbacks: { label: c => ' ' + c.dataset.label + ': ' + fmtSpeed(c.parsed.y) } }, tooltipStyle(colors)),
+        zoom: zoomPlugin(() => connChart),
+      }
+    }
+  });
+
+  // ---- Connections chart (bottom) ----
+  connChart = new Chart(document.getElementById('chart-conn'), {
+    type: 'line',
+    data: {
+      datasets: [{
+        label: 'Active connections', data: allData.map(d => ({ x: d.x, y: d.conn })),
+        borderColor: '#0071e3', backgroundColor: 'rgba(0,113,227,0.12)',
+        borderWidth: 2, pointRadius: 0, pointHoverRadius: 4, fill: true, tension: 0.35,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: false,
+      interaction: { mode: 'index', intersect: false },
+      scales: {
+        x: baseXScale(bounds, colors),
+        y: {
+          beginAtZero: true, grid: { color: colors.grid },
+          ticks: { color: colors.tick, callback: v => fmtConn(v) },
+        },
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: Object.assign({ callbacks: { label: c => ' Connections: ' + c.parsed.y.toLocaleString() } }, tooltipStyle(colors)),
+        zoom: zoomPlugin(() => speedChart),
+      }
+    }
+  });
+}
+
+function showMsg(text) {
+  document.getElementById('charts').style.display = 'none';
+  const m = document.getElementById('msg'); m.style.display = 'block'; m.textContent = text;
+}
+
+// ---- Events ----
+document.querySelectorAll('.toolbar button[data-range]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.toolbar button[data-range]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentRange = parseInt(btn.dataset.range, 10);
+    renderAll(currentRange);
+  });
+});
+document.getElementById('reset-zoom').addEventListener('click', () => {
+  if (speedChart) speedChart.resetZoom();
+  if (connChart) connChart.resetZoom();
+  renderAll(currentRange);
+});
+document.getElementById('month-select').addEventListener('change', e => loadAll(e.target.value));
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => renderAll(currentRange));
+
+loadAll().catch(err => showMsg('Failed to load data: ' + err.message));
+setInterval(() => loadAll(document.getElementById('month-select').value).catch(() => {}), 5 * 60 * 1000);
+</script>
+</body>
+</html>

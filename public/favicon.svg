@@ -1,0 +1,26 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0A84FF"/>
+      <stop offset="1" stop-color="#0071E3"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="15" fill="url(#bg)"/>
+
+  <!-- Antennas -->
+  <path d="M24 26 L20 13" stroke="#fff" stroke-width="3.2" stroke-linecap="round"/>
+  <path d="M40 26 L44 13" stroke="#fff" stroke-width="3.2" stroke-linecap="round"/>
+  <circle cx="19.4" cy="11.5" r="2.6" fill="#fff"/>
+  <circle cx="44.6" cy="11.5" r="2.6" fill="#fff"/>
+
+  <!-- Body -->
+  <rect x="13" y="26" width="38" height="20" rx="5" fill="#fff"/>
+
+  <!-- Signal ripple (left) -->
+  <path d="M20 39 a5 5 0 0 1 8 0" stroke="#0071E3" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+  <circle cx="24" cy="40" r="1.9" fill="#0071E3"/>
+
+  <!-- Indicator lights (right) -->
+  <circle cx="38" cy="36" r="2.1" fill="#0A84FF"/>
+  <circle cx="44.5" cy="36" r="2.1" fill="#34C759"/>
+</svg>

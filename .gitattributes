@@ -1,0 +1,5 @@
+# Keep data and web files consistent with LF line endings
+*.json text eol=lf
+*.html text eol=lf
+*.js   text eol=lf
+*.log  text eol=lf
