@@ -50,7 +50,7 @@ try {
     let changed = false;
     try { git(['diff', '--cached', '--quiet']); } catch (_) { changed = true; }
     if (changed) {
-      git(['commit', '-m', `logs: ${new Date().toISOString().slice(0, 19).replace('T', ' ')}`]);
+      git(['commit', '-m', `ci: ${new Date().toISOString().slice(0, 19).replace('T', ' ')} auto push`]);
     }
   } catch (_) { /* no logs or no changes, ignore */ }
 
