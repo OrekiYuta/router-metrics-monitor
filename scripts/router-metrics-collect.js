@@ -26,8 +26,15 @@ const ENV_FILE = path.join(REPO_DIR, '.env');
 const LOG_DIR = path.join(REPO_DIR, 'logs');
 const LOG_FILE = path.join(LOG_DIR, 'collect.log');
 
+// Format a Date as "YYYY-MM-DD HH:MM:SS" in China Standard Time (UTC+8),
+// independent of the machine's local timezone.
+function fmtCST(d = new Date()) {
+  const t = new Date(d.getTime() + 8 * 3600 * 1000);
+  return t.toISOString().slice(0, 19).replace('T', ' ');
+}
+
 function log(msg) {
-  const line = `${new Date().toISOString().replace('T', ' ').slice(0, 19)} ${msg}`;
+  const line = `${fmtCST()} ${msg}`;
   console.log(line);
   try {
     if (!fs.existsSync(LOG_DIR)) fs.mkdirSync(LOG_DIR, { recursive: true });
@@ -110,8 +117,10 @@ const up = Math.max(0, Math.floor((tx2 - tx1) / SAMPLE_SECONDS));
 const ts = Math.floor(Date.now() / 1000);
 
 // ---- Write the current month's data file ----
-const now = new Date();
-const month = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
+// Determine the month bucket using China Standard Time (UTC+8) so that files
+// roll over at CST month boundaries regardless of the machine timezone.
+const nowCST = new Date(Date.now() + 8 * 3600 * 1000);
+const month = `${nowCST.getUTCFullYear()}${String(nowCST.getUTCMonth() + 1).padStart(2, '0')}`;
 const dataDir = path.join(REPO_DIR, 'public', 'data');
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 const dataFile = path.join(dataDir, `${month}.json`);
@@ -149,7 +158,7 @@ try {
   let changed = false;
   try { git(['diff', '--cached', '--quiet']); } catch (_) { changed = true; }
   if (changed) {
-    git(['commit', '-m', `data: ${new Date().toISOString().slice(0, 19).replace('T', ' ')} conn=${conn} down=${down} up=${up}`]);
+    git(['commit', '-m', `data: ${fmtCST()} conn=${conn} down=${down} up=${up}`]);
     log('committed');
   } else {
     log('no change to commit');

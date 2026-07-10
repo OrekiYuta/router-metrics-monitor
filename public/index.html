@@ -228,7 +228,7 @@ async function tryFetchMonth(ym) {
 }
 
 async function discoverMonths(maxBack = 24) {
-  const now = luxon.DateTime.now();
+  const now = luxon.DateTime.now().setZone('Asia/Shanghai');
   const months = [];
   for (let i = 0; i < maxBack; i++) months.push(now.minus({ months: i }).toFormat('yyyyLL'));
   const results = await Promise.all(months.map(async ym => ({ ym, data: await tryFetchMonth(ym) })));
@@ -279,7 +279,7 @@ function updateStats() {
   el('s-maxdown').textContent = downs.length ? fmtSpeed(Math.max(...downs)) : '—';
   el('s-maxconn').textContent = conns.length ? Math.max(...conns).toLocaleString() : '—';
   el('s-count').textContent = allData.length;
-  el('s-updated').textContent = new Date(last.x).toLocaleString();
+  el('s-updated').textContent = luxon.DateTime.fromMillis(last.x).setZone('Asia/Shanghai').toFormat('yyyy-MM-dd HH:mm:ss');
 }
 
 let currentRange = 24;
@@ -339,6 +339,9 @@ function baseXScale(bounds, colors) {
   return {
     type: 'time',
     min: bounds.min, max: bounds.max,
+    // Render axis ticks & tooltips in China Standard Time (UTC+8) regardless of
+    // the viewer's local timezone (requires the Luxon date adapter).
+    adapters: { date: { zone: 'Asia/Shanghai' } },
     time: { tooltipFormat: 'yyyy-MM-dd HH:mm' },
     grid: { color: colors.grid },
     ticks: { color: colors.tick, maxRotation: 0, autoSkip: true },

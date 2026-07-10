@@ -21,8 +21,15 @@ const ENV_FILE = path.join(REPO_DIR, '.env');
 const LOG_DIR = path.join(REPO_DIR, 'logs');
 const LOG_FILE = path.join(LOG_DIR, 'push.log');
 
+// Format a Date as "YYYY-MM-DD HH:MM:SS" in China Standard Time (UTC+8),
+// independent of the machine's local timezone.
+function fmtCST(d = new Date()) {
+  const t = new Date(d.getTime() + 8 * 3600 * 1000);
+  return t.toISOString().slice(0, 19).replace('T', ' ');
+}
+
 function log(msg) {
-  const line = `${new Date().toISOString().replace('T', ' ').slice(0, 19)} ${msg}`;
+  const line = `${fmtCST()} ${msg}`;
   console.log(line);
   try {
     if (!fs.existsSync(LOG_DIR)) fs.mkdirSync(LOG_DIR, { recursive: true });
@@ -50,7 +57,7 @@ try {
     let changed = false;
     try { git(['diff', '--cached', '--quiet']); } catch (_) { changed = true; }
     if (changed) {
-      git(['commit', '-m', `ci: ${new Date().toISOString().slice(0, 19).replace('T', ' ')} auto push`]);
+      git(['commit', '-m', `ci: ${fmtCST()} auto push`]);
     }
   } catch (_) { /* no logs or no changes, ignore */ }
 
